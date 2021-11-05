@@ -1,7 +1,7 @@
 # QA-GNN: Question Answering using Language Models and Knowledge Graphs
 
 This repo provides the source code & data of our paper: [QA-GNN: Reasoning with Language Models and Knowledge Graphs for Question Answering](https://arxiv.org/abs/2104.06378) (NAACL 2021).
-```
+```bib
 @InProceedings{yasunaga2021qagnn,
   author =  {Michihiro Yasunaga and Hongyu Ren and Antoine Bosselut and Percy Liang and Jure Leskovec},
   title =   {QA-GNN: Reasoning with Language Models and Knowledge Graphs for Question Answering},
@@ -106,7 +106,7 @@ CommonsenseQA
     <th>In-house Test acc.</th>
   </tr>
   <tr>
-    <th>RoBERTa-large + QA-GNN <a href="https://nlp.stanford.edu/projects/myasu/QAGNN/models/csqa_model.pt">[link]</a></th>
+    <th>RoBERTa-large + QA-GNN <a href="https://nlp.stanford.edu/projects/myasu/QAGNN/models/csqa_model_hf2.0.0.pt">[link]</a></th>
     <th>0.7633</th>
     <th>0.7405</th>
   </tr>
