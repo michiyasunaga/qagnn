@@ -44,7 +44,7 @@ pip install torch-geometric==1.6.0 -f https://pytorch-geometric.com/whl/torch-1.
 ```
 
 
-### 1. Download Data
+### 1. Download data
 
 Download all the raw data -- ConceptNet, CommonsenseQA, OpenBookQA -- by
 ```
@@ -83,7 +83,7 @@ The resulting file structure will look like:
         ├── ...
 ```
 
-### 2. Training
+### 2. Train QA-GNN
 For CommonsenseQA, run
 ```
 ./run_qagnn__csqa.sh
@@ -112,6 +112,7 @@ CommonsenseQA
   </tr>
 </table>
 
+**Note**: The models were trained and tested with HuggingFace transformers==2.0.0
 
 
 ## Use your own dataset
