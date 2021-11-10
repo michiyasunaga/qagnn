@@ -1,3 +1,5 @@
+#!/bin/bash
+
 export CUDA_VISIBLE_DEVICES=0,1
 dt=`date '+%Y%m%d_%H%M%S'`
 
@@ -12,7 +14,10 @@ args=$@
 elr="1e-5"
 dlr="1e-3"
 bs=128
-n_epochs=70
+mbs=1
+n_epochs=100
+num_relation=38 #(17 +2) * 2: originally 17, add 2 relation types (QA context -> Q node; QA context -> A node), and double because we add reverse edges
+
 
 k=5 #num of gnn layers
 gnndim=200
@@ -27,12 +32,14 @@ echo "******************************"
 
 save_dir_pref='saved_models'
 mkdir -p $save_dir_pref
+mkdir -p logs
 
 ###### Training ######
 for seed in 0; do
   python3 -u qagnn.py --dataset $dataset \
-      --encoder $model -k $k --gnn_dim $gnndim -elr $elr -dlr $dlr -bs $bs --seed $seed \
-      --n_epochs $n_epochs --max_epochs_before_stop 30  \
+      --encoder $model -k $k --gnn_dim $gnndim -elr $elr -dlr $dlr -bs $bs -mbs $mbs --fp16 true --seed $seed \
+      --num_relation $num_relation \
+      --n_epochs $n_epochs --max_epochs_before_stop 50  \
       --train_adj data/${dataset}/graph/train.graph.adj.pk \
       --dev_adj   data/${dataset}/graph/dev.graph.adj.pk \
       --test_adj  data/${dataset}/graph/test.graph.adj.pk \
@@ -41,5 +48,5 @@ for seed in 0; do
       --test_statements  data/${dataset}/statement/test.statement.jsonl \
       --save_model \
       --save_dir ${save_dir_pref}/${dataset}/enc-${model}__k${k}__gnndim${gnndim}__bs${bs}__seed${seed}__${dt} $args \
-  > train_${dataset}__enc-${model}__k${k}__gnndim${gnndim}__bs${bs}__seed${seed}__${dt}.log.txt
+  > logs/train_${dataset}__enc-${model}__k${k}__gnndim${gnndim}__bs${bs}__seed${seed}__${dt}.log.txt
 done

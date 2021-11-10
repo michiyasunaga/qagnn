@@ -8,7 +8,8 @@ try:
     from transformers import ALBERT_PRETRAINED_CONFIG_ARCHIVE_MAP
 except:
     pass
-from transformers import AutoModel
+from transformers import AutoModel, BertModel, BertConfig
+# from transformers.modeling_bert import BERT_PRETRAINED_MODEL_ARCHIVE_MAP
 from utils.layers import *
 from utils.data_utils import get_gpt_token_num
 
@@ -25,6 +26,10 @@ except:
     pass
 
 MODEL_NAME_TO_CLASS = {model_name: model_class for model_class, model_name_list in MODEL_CLASS_TO_NAME.items() for model_name in model_name_list}
+
+#Add SapBERT configuration
+model_name = 'cambridgeltl/SapBERT-from-PubMedBERT-fulltext'
+MODEL_NAME_TO_CLASS[model_name] = 'bert'
 
 
 class LSTMTextEncoder(nn.Module):
@@ -94,7 +99,8 @@ class TextEncoder(nn.Module):
             self.module = LSTMTextEncoder(**kwargs, output_hidden_states=True)
             self.sent_dim = self.module.output_size
         else:
-            self.module = AutoModel.from_pretrained(model_name, output_hidden_states=True)
+            model_class = AutoModel
+            self.module = model_class.from_pretrained(model_name, output_hidden_states=True)
             if from_checkpoint is not None:
                 self.module = self.module.from_pretrained(from_checkpoint, output_hidden_states=True)
             if self.model_type in ('gpt',):

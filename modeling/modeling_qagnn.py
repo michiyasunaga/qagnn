@@ -9,6 +9,7 @@ class QAGNN_Message_Passing(nn.Module):
                     dropout=0.1):
         super().__init__()
         assert input_size == output_size
+        self.args = args
         self.n_ntype = n_ntype
         self.n_etype = n_etype
 
@@ -30,7 +31,7 @@ class QAGNN_Message_Passing(nn.Module):
 
 
         self.k = k
-        self.gnn_layers = nn.ModuleList([GATConvE(hidden_size, n_ntype, n_etype, self.edge_encoder) for _ in range(k)])
+        self.gnn_layers = nn.ModuleList([GATConvE(args, hidden_size, n_ntype, n_etype, self.edge_encoder) for _ in range(k)])
 
 
         self.Vh = nn.Linear(input_size, output_size)
@@ -260,6 +261,7 @@ class LM_QAGNN_DataLoader(object):
                  is_inhouse=False, inhouse_train_qids_path=None,
                  subsample=1.0, use_cache=True):
         super().__init__()
+        self.args = args
         self.batch_size = batch_size
         self.eval_batch_size = eval_batch_size
         self.device0, self.device1 = device
@@ -324,19 +326,19 @@ class LM_QAGNN_DataLoader(object):
             train_indexes = self.inhouse_train_indexes[torch.randperm(n_train)]
         else:
             train_indexes = torch.randperm(len(self.train_qids))
-        return MultiGPUSparseAdjDataBatchGenerator(self.device0, self.device1, self.batch_size, train_indexes, self.train_qids, self.train_labels, tensors0=self.train_encoder_data, tensors1=self.train_decoder_data, adj_data=self.train_adj_data)
+        return MultiGPUSparseAdjDataBatchGenerator(self.args, 'train', self.device0, self.device1, self.batch_size, train_indexes, self.train_qids, self.train_labels, tensors0=self.train_encoder_data, tensors1=self.train_decoder_data, adj_data=self.train_adj_data)
 
     def train_eval(self):
-        return MultiGPUSparseAdjDataBatchGenerator(self.device0, self.device1, self.eval_batch_size, torch.arange(len(self.train_qids)), self.train_qids, self.train_labels, tensors0=self.train_encoder_data, tensors1=self.train_decoder_data, adj_data=self.train_adj_data)
+        return MultiGPUSparseAdjDataBatchGenerator(self.args, 'eval', self.device0, self.device1, self.eval_batch_size, torch.arange(len(self.train_qids)), self.train_qids, self.train_labels, tensors0=self.train_encoder_data, tensors1=self.train_decoder_data, adj_data=self.train_adj_data)
 
     def dev(self):
-        return MultiGPUSparseAdjDataBatchGenerator(self.device0, self.device1, self.eval_batch_size, torch.arange(len(self.dev_qids)), self.dev_qids, self.dev_labels, tensors0=self.dev_encoder_data, tensors1=self.dev_decoder_data, adj_data=self.dev_adj_data)
+        return MultiGPUSparseAdjDataBatchGenerator(self.args, 'eval', self.device0, self.device1, self.eval_batch_size, torch.arange(len(self.dev_qids)), self.dev_qids, self.dev_labels, tensors0=self.dev_encoder_data, tensors1=self.dev_decoder_data, adj_data=self.dev_adj_data)
 
     def test(self):
         if self.is_inhouse:
-            return MultiGPUSparseAdjDataBatchGenerator(self.device0, self.device1, self.eval_batch_size, self.inhouse_test_indexes, self.train_qids, self.train_labels, tensors0=self.train_encoder_data, tensors1=self.train_decoder_data, adj_data=self.train_adj_data)
+            return MultiGPUSparseAdjDataBatchGenerator(self.args, 'eval', self.device0, self.device1, self.eval_batch_size, self.inhouse_test_indexes, self.train_qids, self.train_labels, tensors0=self.train_encoder_data, tensors1=self.train_decoder_data, adj_data=self.train_adj_data)
         else:
-            return MultiGPUSparseAdjDataBatchGenerator(self.device0, self.device1, self.eval_batch_size, torch.arange(len(self.test_qids)), self.test_qids, self.test_labels, tensors0=self.test_encoder_data, tensors1=self.test_decoder_data, adj_data=self.test_adj_data)
+            return MultiGPUSparseAdjDataBatchGenerator(self.args, 'eval', self.device0, self.device1, self.eval_batch_size, torch.arange(len(self.test_qids)), self.test_qids, self.test_labels, tensors0=self.test_encoder_data, tensors1=self.test_decoder_data, adj_data=self.test_adj_data)
 
 
 
@@ -382,8 +384,10 @@ class GATConvE(MessagePassing):
         n_ntype (int): number of node types (e.g. 4)
         n_etype (int): number of edge relation types (e.g. 38)
     """
-    def __init__(self, emb_dim, n_ntype, n_etype, edge_encoder, head_count=4, aggr="add"):
+    def __init__(self, args, emb_dim, n_ntype, n_etype, edge_encoder, head_count=4, aggr="add"):
         super(GATConvE, self).__init__(aggr=aggr)
+        self.args = args
+
         assert emb_dim % 2 == 0
         self.emb_dim = emb_dim
 
