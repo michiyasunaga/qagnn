@@ -153,6 +153,7 @@ MedQA-USMLE
     <th>0.3810</th>
   </tr>
 </table>
+
 **Note**: The models were trained and tested with HuggingFace transformers==3.4.0.
 
 
