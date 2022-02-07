@@ -5,7 +5,7 @@ try:
 except:
     from transformers import get_constant_schedule, get_constant_schedule_with_warmup,  get_linear_schedule_with_warmup
 
-from modeling.modeling_qagnn import *
+from modeling.modelling_gsc import *
 from utils.optimization_utils import OPTIMIZER_CLASSES
 from utils.parser_utils import *
 
@@ -22,7 +22,7 @@ import numpy as np
 import socket, os, subprocess, datetime
 print(socket.gethostname())
 print ("pid:", os.getpid())
-print ("conda env:", os.environ['CONDA_DEFAULT_ENV'])
+#print ("conda env:", os.environ['CONDA_DEFAULT_ENV'])
 print ("screen: %s" % subprocess.check_output('echo $STY', shell=True).decode('utf'))
 print ("gpu: %s" % subprocess.check_output('echo $CUDA_VISIBLE_DEVICES', shell=True).decode('utf'))
 
@@ -253,10 +253,10 @@ def train(args):
                     b = min(a + args.mini_batch_size, bs)
                     if args.fp16:
                         with torch.cuda.amp.autocast():
-                            logits, _ = model(*[x[a:b] for x in input_data], layer_id=args.encoder_layer)
+                            logits = model(*[x[a:b] for x in input_data], layer_id=args.encoder_layer)
                             loss = compute_loss(logits, labels[a:b])
                     else:
-                        logits, _ = model(*[x[a:b] for x in input_data], layer_id=args.encoder_layer)
+                        logits = model(*[x[a:b] for x in input_data], layer_id=args.encoder_layer)
                         loss = compute_loss(logits, labels[a:b])
                     loss = loss * (b - a) / bs
                     if args.fp16:
