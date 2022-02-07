@@ -18,7 +18,7 @@ class GSC_layer(MessagePassing):
 
 
 class GSC_Message_Passing(nn.Module):
-    def __init__(self, args, k, n_ntype, n_etype, hidden_size, dropout=0.1):
+    def __init__(self, args, k, n_ntype, n_etype, hidden_size):
         super().__init__()
         self.args = args
         self.n_ntype = n_ntype
@@ -30,12 +30,13 @@ class GSC_Message_Passing(nn.Module):
                                           nn.Sigmoid())
         self.k = k
         self.gnn_layers = nn.ModuleList([GSC_layer() for _ in range(k)])
+        self.regulator = nn.Sequential(nn.Linear(1, self.hidden_size), nn.LayerNorm(self.hidden_size), nn.GELU(), nn.Linear(self.hidden_size, 1))
 
 
 
     def edge_embeddings(self, edge_type, edge_idx, node_type_idxs):
         """
-        In total we can have n_ntype * n_ntype * n_etype different edges. In fact, each edge is caracterized by its head, its tail node and its edge node.
+        In total we can have n_ntype * n_ntype * n_etype different edges. In fact, each edge is caracterized by its head node, its tail node and its edge node.
         """
         node_type = node_type_idxs.view(-1).contiguous()  # [`total_n_nodes`, ]
         head_type = node_type[edge_idx[0]]  # [E,] #head=src
@@ -66,7 +67,7 @@ class GSC_Message_Passing(nn.Module):
 
 
 
-class QAGNN(nn.Module):
+class QAGSC(nn.Module):
     def __init__(self, args, k, n_ntype, n_etype, sent_dim,
                  n_concept, concept_dim, concept_in_dim, n_attention_head,
                  fc_dim, n_fc_layer, p_emb, p_gnn, p_fc,
