@@ -299,7 +299,7 @@ def train(args):
                     with torch.no_grad():
                         for qids, labels, *input_data in tqdm(eval_set):
                             count += 1
-                            logits, _, concept_ids, node_type_ids, edge_index, edge_type = model(*input_data, detail=True)
+                            logits, concept_ids, node_type_ids, edge_index, edge_type = model(*input_data, detail=True)
                             predictions = logits.argmax(1) #[bsize, ]
                             preds_ranked = (-logits).argsort(1) #[bsize, n_choices]
                             for i, (qid, label, pred, _preds_ranked, cids, ntype, edges, etype) in enumerate(zip(qids, labels, predictions, preds_ranked, concept_ids, node_type_ids, edge_index, edge_type)):
@@ -413,7 +413,7 @@ def eval_detail(args):
             with torch.no_grad():
                 for qids, labels, *input_data in tqdm(eval_set):
                     count += 1
-                    logits, _, concept_ids, node_type_ids, edge_index, edge_type = model(*input_data, detail=True)
+                    logits, concept_ids, node_type_ids, edge_index, edge_type = model(*input_data, detail=True)
                     predictions = logits.argmax(1) #[bsize, ]
                     preds_ranked = (-logits).argsort(1) #[bsize, n_choices]
                     for i, (qid, label, pred, _preds_ranked, cids, ntype, edges, etype) in enumerate(zip(qids, labels, predictions, preds_ranked, concept_ids, node_type_ids, edge_index, edge_type)):
