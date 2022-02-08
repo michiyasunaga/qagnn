@@ -32,7 +32,7 @@ def evaluate_accuracy(eval_set, model):
     model.eval()
     with torch.no_grad():
         for qids, labels, *input_data in tqdm(eval_set):
-            logits, _ = model(*input_data)
+            logits = model(*input_data)
             n_correct += (logits.argmax(1) == labels).sum().item()
             n_samples += labels.size(0)
     return n_correct / n_samples
