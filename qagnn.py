@@ -1,11 +1,12 @@
 import random
+import matplotlib.pyplot as plt
 
 try:
     from transformers import (ConstantLRSchedule, WarmupLinearSchedule, WarmupConstantSchedule)
 except:
     from transformers import get_constant_schedule, get_constant_schedule_with_warmup,  get_linear_schedule_with_warmup
 
-from modeling.modeling_qagnn import *
+from modelling_gsc import *
 from utils.optimization_utils import OPTIMIZER_CLASSES
 from utils.parser_utils import *
 
@@ -16,13 +17,11 @@ DECODER_DEFAULT_LR = {
     'medqa_usmle': 1e-3,
 }
 
-from collections import defaultdict, OrderedDict
 import numpy as np
 
 import socket, os, subprocess, datetime
 print(socket.gethostname())
 print ("pid:", os.getpid())
-print ("conda env:", os.environ['CONDA_DEFAULT_ENV'])
 print ("screen: %s" % subprocess.check_output('echo $STY', shell=True).decode('utf'))
 print ("gpu: %s" % subprocess.check_output('echo $CUDA_VISIBLE_DEVICES', shell=True).decode('utf'))
 
@@ -32,7 +31,7 @@ def evaluate_accuracy(eval_set, model):
     model.eval()
     with torch.no_grad():
         for qids, labels, *input_data in tqdm(eval_set):
-            logits, _ = model(*input_data)
+            logits = model(*input_data)
             n_correct += (logits.argmax(1) == labels).sum().item()
             n_samples += labels.size(0)
     return n_correct / n_samples
@@ -138,7 +137,8 @@ def train(args):
         else:
             device0 = torch.device("cpu")
             device1 = torch.device("cpu")
-        dataset = LM_QAGNN_DataLoader(args, args.train_statements, args.train_adj,
+
+        dataset = GSCLoader(args, args.train_statements, args.train_adj,
                                                args.dev_statements, args.dev_adj,
                                                args.test_statements, args.test_adj,
                                                batch_size=args.batch_size, eval_batch_size=args.eval_batch_size,
@@ -146,20 +146,15 @@ def train(args):
                                                model_name=args.encoder,
                                                max_node_num=args.max_node_num, max_seq_length=args.max_seq_len,
                                                is_inhouse=args.inhouse, inhouse_train_qids_path=args.inhouse_train_qids,
-                                               subsample=args.subsample, use_cache=args.use_cache)
+                                               subsample=args.subsample)
 
         ###################################################################################################
         #   Build model                                                                                   #
         ###################################################################################################
         print ('args.num_relation', args.num_relation)
-        model = LM_QAGNN(args, args.encoder, k=args.k, n_ntype=4, n_etype=args.num_relation, n_concept=concept_num,
-                                   concept_dim=args.gnn_dim,
-                                   concept_in_dim=concept_dim,
-                                   n_attention_head=args.att_head_num, fc_dim=args.fc_dim, n_fc_layer=args.fc_layer_num,
-                                   p_emb=args.dropouti, p_gnn=args.dropoutg, p_fc=args.dropoutf,
-                                   pretrained_concept_emb=cp_emb, freeze_ent_emb=args.freeze_ent_emb,
-                                   init_range=args.init_range,
-                                   encoder_config={})
+        model = Model(args, args.encoder, k=args.k, n_ntype=4, n_etype=args.num_relation,
+                                   gnn_dim=args.gnn_dim, fc_dim=args.fc_dim, n_fc_layer=args.fc_layer_num,
+                                   p_fc=args.dropoutf)
         if args.load_model_path:
             print (f'loading and initializing model from {args.load_model_path}')
             model_state_dict, old_args = torch.load(args.load_model_path, map_location=torch.device('cpu'))
@@ -238,6 +233,9 @@ def train(args):
     start_time = time.time()
     model.train()
     freeze_net(model.encoder)
+
+    plot_loss = [0 for _ in range(args.n_epochs)]
+    plt_accuracy = []
     if True:
     # try:
         for epoch_id in range(args.n_epochs):
@@ -253,10 +251,10 @@ def train(args):
                     b = min(a + args.mini_batch_size, bs)
                     if args.fp16:
                         with torch.cuda.amp.autocast():
-                            logits, _ = model(*[x[a:b] for x in input_data], layer_id=args.encoder_layer)
+                            logits = model(*[x[a:b] for x in input_data], layer_id=args.encoder_layer)
                             loss = compute_loss(logits, labels[a:b])
                     else:
-                        logits, _ = model(*[x[a:b] for x in input_data], layer_id=args.encoder_layer)
+                        logits = model(*[x[a:b] for x in input_data], layer_id=args.encoder_layer)
                         loss = compute_loss(logits, labels[a:b])
                     loss = loss * (b - a) / bs
                     if args.fp16:
@@ -264,6 +262,7 @@ def train(args):
                     else:
                         loss.backward()
                     total_loss += loss.item()
+                plot_loss[epoch_id] += total_loss
                 if args.max_grad_norm > 0:
                     if args.fp16:
                         scaler.unscale_(optimizer)
@@ -284,6 +283,8 @@ def train(args):
                     total_loss = 0
                     start_time = time.time()
                 global_step += 1
+            plt.plot(plot_loss[:epoch_id], 'r')
+            plt.show()
 
             model.eval()
             dev_acc = evaluate_accuracy(dataset.dev(), model)
@@ -299,7 +300,7 @@ def train(args):
                     with torch.no_grad():
                         for qids, labels, *input_data in tqdm(eval_set):
                             count += 1
-                            logits, _, concept_ids, node_type_ids, edge_index, edge_type = model(*input_data, detail=True)
+                            logits, concept_ids, node_type_ids, edge_index, edge_type = model(*input_data, detail=True)
                             predictions = logits.argmax(1) #[bsize, ]
                             preds_ranked = (-logits).argsort(1) #[bsize, n_choices]
                             for i, (qid, label, pred, _preds_ranked, cids, ntype, edges, etype) in enumerate(zip(qids, labels, predictions, preds_ranked, concept_ids, node_type_ids, edge_index, edge_type)):
@@ -307,8 +308,10 @@ def train(args):
                                 print ('{},{}'.format(qid, chr(ord('A') + pred.item())), file=f_preds)
                                 f_preds.flush()
                                 total_acc.append(acc)
-                test_acc = float(sum(total_acc))/len(total_acc)
-
+                    test_acc = float(sum(total_acc))/len(total_acc)
+                    plt_accuracy.append(test_acc)
+                plt.plot(plt_accuracy, 'b')
+                plt.show()
             print('-' * 71)
             print('| epoch {:3} | step {:5} | dev_acc {:7.4f} | test_acc {:7.4f} |'.format(epoch_id, global_step, dev_acc, test_acc))
             print('-' * 71)
@@ -316,7 +319,6 @@ def train(args):
                 fout.write('{},{},{}\n'.format(global_step, dev_acc, test_acc))
             if dev_acc >= best_dev_acc:
                 best_dev_acc = dev_acc
-                final_test_acc = test_acc
                 best_dev_epoch = epoch_id
                 if args.save_model:
                     torch.save([model.state_dict(), args], f"{model_path}.{epoch_id}")
@@ -350,14 +352,9 @@ def eval_detail(args):
     print('| num_concepts: {} |'.format(concept_num))
 
     model_state_dict, old_args = torch.load(model_path, map_location=torch.device('cpu'))
-    model = LM_QAGNN(old_args, old_args.encoder, k=old_args.k, n_ntype=4, n_etype=old_args.num_relation, n_concept=concept_num,
-                               concept_dim=old_args.gnn_dim,
-                               concept_in_dim=concept_dim,
-                               n_attention_head=old_args.att_head_num, fc_dim=old_args.fc_dim, n_fc_layer=old_args.fc_layer_num,
-                               p_emb=old_args.dropouti, p_gnn=old_args.dropoutg, p_fc=old_args.dropoutf,
-                               pretrained_concept_emb=cp_emb, freeze_ent_emb=old_args.freeze_ent_emb,
-                               init_range=old_args.init_range,
-                               encoder_config={})
+    model = Model(old_args, old_args.encoder, k=old_args.k, n_ntype=4, n_etype=old_args.num_relation, gnn_dim=concept_num,
+                               fc_dim=old_args.fc_dim, n_fc_layer=old_args.fc_layer_num,
+                               p_fc=old_args.dropoutf)
     model.load_state_dict(model_state_dict)
 
     if torch.cuda.device_count() >= 2 and args.cuda:
@@ -388,7 +385,7 @@ def eval_detail(args):
     print ('args.dev_adj', args.dev_adj)
     print ('args.test_adj', args.test_adj)
 
-    dataset = LM_QAGNN_DataLoader(args, args.train_statements, args.train_adj,
+    dataset = GSCLoader(args, args.train_statements, args.train_adj,
                                            args.dev_statements, args.dev_adj,
                                            args.test_statements, args.test_adj,
                                            batch_size=args.batch_size, eval_batch_size=args.eval_batch_size,
@@ -396,7 +393,7 @@ def eval_detail(args):
                                            model_name=old_args.encoder,
                                            max_node_num=old_args.max_node_num, max_seq_length=old_args.max_seq_len,
                                            is_inhouse=args.inhouse, inhouse_train_qids_path=args.inhouse_train_qids,
-                                           subsample=args.subsample, use_cache=args.use_cache)
+                                           subsample=args.subsample, model_type=args.model)
 
     save_test_preds = args.save_model
     dev_acc = evaluate_accuracy(dataset.dev(), model)
@@ -413,7 +410,7 @@ def eval_detail(args):
             with torch.no_grad():
                 for qids, labels, *input_data in tqdm(eval_set):
                     count += 1
-                    logits, _, concept_ids, node_type_ids, edge_index, edge_type = model(*input_data, detail=True)
+                    logits, concept_ids, node_type_ids, edge_index, edge_type = model(*input_data, detail=True)
                     predictions = logits.argmax(1) #[bsize, ]
                     preds_ranked = (-logits).argsort(1) #[bsize, n_choices]
                     for i, (qid, label, pred, _preds_ranked, cids, ntype, edges, etype) in enumerate(zip(qids, labels, predictions, preds_ranked, concept_ids, node_type_ids, edge_index, edge_type)):
