@@ -35,6 +35,13 @@ pip install torch-sparse==0.6.9 -f https://pytorch-geometric.com/whl/torch-1.8.0
 pip install torch-geometric==1.7.0 -f https://pytorch-geometric.com/whl/torch-1.8.0+cu101.html
 ```
 
+### 0. Alternate Setup (Columbia)
+
+Build environment from .yml file with
+  ```conda env create --force```
+Download spacy extras with
+  ```python -m spacy download em
+
 
 ### 1. Download data
 We use the question answering datasets (*CommonsenseQA*, *OpenBookQA*) and the ConceptNet knowledge graph.

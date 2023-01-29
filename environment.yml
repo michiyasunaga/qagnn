@@ -1,0 +1,30 @@
+name: qagnn
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+  - ostrokach-forge
+  - pyg
+  - conda-forge
+  - anaconda
+dependencies:
+  - python=3.7 
+  - pytorch=1.8.0
+  # - transformers==3.4.0
+  - spacy==2.1.6
+  - tqdm
+  - pyg
+  - nltk
+  - pip
+  # - pytorch_geometric==2.1.0
+  - protobuf==3.20.0
+  - pip:
+    - networkx==2.6
+    - torch-sparse==0.6.9
+    - torch-scatter==2.0.7
+    - torch-geometric==1.7.0
+    - transformers==3.4.0
+    - black
+
+variables:
+  TORCH_CUDA_ARCH_LIST: "8.6"
