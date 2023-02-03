@@ -40,7 +40,7 @@ pip install torch-geometric==1.7.0 -f https://pytorch-geometric.com/whl/torch-1.
 Build environment from .yml file with
   ```conda env create --force```
 Download spacy extras with
-  ```python -m spacy download em
+  ```python -m spacy download em```
 
 
 ### 1. Download data
