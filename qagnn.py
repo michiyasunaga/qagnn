@@ -27,6 +27,30 @@ print ("screen: %s" % subprocess.check_output('echo $STY', shell=True).decode('u
 print ("gpu: %s" % subprocess.check_output('echo $CUDA_VISIBLE_DEVICES', shell=True).decode('utf'))
 
 
+def evaluate_loss(eval_set, model, loss_type='cross_entropy'):
+    """
+    :param eval_set: The evaluation set
+    :param model: The model type
+    :param loss_type: The loss type (default: cross_entropy)
+    :return:
+    """
+    if loss_type == 'cross_entropy':
+        loss_func = nn.CrossEntropyLoss(reduction='mean')
+    else:
+        raise Exception("Only cross entropy supported")
+    total_loss = 0
+    n_samples = 0
+
+    model.eval()
+    with torch.no_grad():
+        for qids, labels, *input_data in tqdm(eval_set):
+            logits, _ = model(*input_data)
+            loss = loss_func(logits, labels)
+            total_loss += loss
+            n_samples += labels.size(0)
+
+    return total_loss / n_samples
+
 def evaluate_accuracy(eval_set, model):
     n_samples, n_correct = 0, 0
     model.eval()
@@ -287,9 +311,12 @@ def train(args):
 
             model.eval()
             dev_acc = evaluate_accuracy(dataset.dev(), model)
+            dev_loss = evaluate_loss(dataset.dev(), model)
             save_test_preds = args.save_model
+            test_loss = evaluate_loss(dataset.test(), model)
             if not save_test_preds:
                 test_acc = evaluate_accuracy(dataset.test(), model) if args.test_statements else 0.0
+
             else:
                 eval_set = dataset.test()
                 total_acc = []
@@ -401,6 +428,7 @@ def eval_detail(args):
     save_test_preds = args.save_model
     dev_acc = evaluate_accuracy(dataset.dev(), model)
     print('dev_acc {:7.4f}'.format(dev_acc))
+
     if not save_test_preds:
         test_acc = evaluate_accuracy(dataset.test(), model) if args.test_statements else 0.0
     else:
@@ -426,6 +454,12 @@ def eval_detail(args):
         print('-' * 71)
         print('test_acc {:7.4f}'.format(test_acc))
         print('-' * 71)
+
+        model.reset_batch_number()
+        dev_loss = evaluate_loss(dataset.dev(), model)
+        print('dev_loss {:7.4f}'.format(dev_loss))
+        test_loss = evaluate_loss(dataset.test(), model)
+        print('test_loss {:7.4f}'.format(test_loss))
 
 
 
